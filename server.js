@@ -52,7 +52,7 @@ io.on("connection", (socket) => {
       }
     });
     if (flag) peers.push(data);
-    console.log(peers);
+    console.log("broadcast ", peers);
     io.sockets.emit("broadcast", peers);
     io.sockets.emit("receive-user-join", usersJoin);
   });
@@ -64,6 +64,21 @@ io.on("connection", (socket) => {
   socket.on("send-book", (data) => {
     data.socketIds.forEach((socketId) => {
       io.to(socketId).emit("receive-book", data);
+    });
+  });
+  socket.on("send-message", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("send-message", data);
+    });
+  });
+  socket.on("read-message", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("read-message", data);
+    });
+  });
+  socket.on("delete-message", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("delete-message", data);
     });
   });
 });
