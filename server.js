@@ -17,6 +17,8 @@ app.get("/", (req, res) => {
 });
 let peers = [];
 let usersJoin = [];
+const users = {};
+const socketToRoom = {};
 io.on("connection", (socket) => {
   socket.emit("me", socket.id);
   console.log("new user connected");
@@ -80,6 +82,118 @@ io.on("connection", (socket) => {
     data.socketIds.forEach((socketId) => {
       io.to(socketId).emit("delete-message", data);
     });
+  });
+
+  socket.on("join room", (data) => {
+    console.log(" join room");
+    if (users[data.roomId]) {
+      const length = users[data.roomId].length;
+      if (length === 5) {
+        socket.emit("room full");
+        return;
+      }
+      users[data.roomId].push({
+        socketId: socket.id,
+        userJoin: data.userJoin,
+      });
+    } else {
+      users[data.roomId] = [
+        {
+          socketId: socket.id,
+          userJoin: data.userJoin,
+        },
+      ];
+    }
+    socketToRoom[socket.id] = data.roomId;
+    const usersInThisRoom = users[data.roomId].filter(
+      (id) => id.socketId !== socket.id
+    );
+    console.log("usersin this room", usersInThisRoom);
+    socket.emit("all users", {
+      users: usersInThisRoom,
+      userJoin: data.userJoin,
+    });
+  });
+
+  socket.on("sending signal", (payload) => {
+    io.to(payload.userToSignal).emit("user joined", {
+      signal: payload.signal,
+      callerID: payload.callerID,
+      userJoin: payload.userJoin,
+    });
+  });
+
+  socket.on("returning signal", (payload) => {
+    console.log("return signal", payload);
+    io.to(payload.callerID).emit("receiving returned signal", {
+      signal: payload.signal,
+      id: socket.id,
+    });
+  });
+  socket.on("invite join room", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("invite join room", data);
+    });
+  });
+  socket.on("stop-meeting", (roomID) => {
+    users[roomID].forEach((user) => {
+      io.to(user.socketId).emit("stop-meeting", roomID);
+    });
+  });
+  socket.on("update-message-stop-meeting", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("update-message-stop-meeting", data);
+    });
+  });
+  socket.on("cede host", (data) => {
+    users[data.roomId].forEach((user) => {
+      io.to(user.socketId).emit("cede host", data);
+    });
+  });
+  socket.on("turn on video room", (data) => {
+    users[data.roomId].forEach((user) => {
+      io.to(user.socketId).emit("turn on video room", data.userTurnOn);
+    });
+  });
+  socket.on("turn off video room", (data) => {
+    users[data.roomId].forEach((user) => {
+      io.to(user.socketId).emit("turn off video room", data.userTurnOff);
+    });
+  });
+  socket.on("turn on audio room", (data) => {
+    console.log("turn on audio room", data);
+    users[data.roomId].forEach((user) => {
+      io.to(user.socketId).emit("turn on audio room", data.userTurnOn);
+    });
+  });
+  socket.on("turn off audio room", (data) => {
+    console.log("turn  audio room", data);
+    users[data.roomId].forEach((user) => {
+      io.to(user.socketId).emit("turn off audio room", data.userTurnOff);
+    });
+  });
+  socket.on("expel member", (data) => {
+    console.log("expel member", data);
+    users[data.roomId]
+      .filter((user) => user.socketId !== data.socketId)
+      .forEach((socketId) => {
+        io.to(socketId.socketId).emit("out room other", data);
+      });
+    io.to(data.socketId).emit("out room", data);
+    users[data.roomId] = users[data.roomId].filter(
+      (user) => user.socketId !== data.socketId
+    );
+  });
+  socket.on("flip camera", (data) => {
+    console.log("flip", data);
+    users[data.roomId]
+      .filter((user) => user.socketId !== data.socketId)
+      .forEach((socketId) => {
+        io.to(socketId.socketId).emit("replace peers", data);
+      });
+    users[data.roomId] = users[data.roomId].filter(
+      (user) => user.socketId !== data.socketId
+    );
   });
 });
 server.listen(process.env.PORT || 3001, () => {
