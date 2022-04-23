@@ -199,6 +199,31 @@ io.on("connection", (socket) => {
         io.to(socketId.socketId).emit("send-message-meeting", data);
       });
   });
+  socket.on("share-screen", (data) => {
+    console.log("share-screen", data);
+    users[data.roomId]
+      .filter((user) => user.socketId !== data.socketId)
+      .forEach((socketId) => {
+        io.to(socketId.socketId).emit("share-screen", data);
+      });
+  });
+  socket.on("returning share-screen", (payload) => {
+    console.log("return share-screen", payload);
+    io.to(payload.callerID).emit("receiving returned share-screen", {
+      signal: payload.signal,
+      id: socket.id,
+    });
+  });
+  socket.on("inputting-message", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("inputting-message", data);
+    });
+  });
+  socket.on("delete-inputting-message", (data) => {
+    data.socketIds.forEach((socketId) => {
+      io.to(socketId).emit("delete-inputting-message", data);
+    });
+  });
 });
 server.listen(process.env.PORT || 3001, () => {
   console.log("Server is running on port 3001");
